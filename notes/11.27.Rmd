@@ -1,0 +1,334 @@
+---
+title: 'Nov 27 Notes'
+author: "Hongdou Li"
+date: "11/27/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exponential Smoothing (ES) aka Holt-Winters Methodology
+
+The objective is to predict $Y_{n+h}$ given the history of observations $\{y_1,y_2,...,y_n\}$. Using exponential smoothing techniques we do so with a set of recursive equations that do not require distributional assumptions. 
+
+We will use different sets of equations to fit data depending on whether the data has 
+
+(1) no trend + no seasonality <- single/simple ES
+
+(2) trend + no seasonality <- Double ES
+
+(3) trend + seasonality <- Trible ES
+
+## Single Exponential Smoothing (SES)
+
+"Level" Equation: $a_t=\alpha y_t+(1-\alpha)a_{t-1}$
+
+Forecast Equation: $\hat{y}_{t+h}=a_t$ for h=1,2,3,...
+
+\* $0\le\alpha\le1$ is a **smoothing parameter**. small $\alpha$ performs more smoothing and large $\alpha$ performs less. Note, if $\alpha=0$, $a_t = a_0$ (super smooth) and if $\alpha=1$, $a_t = y_t$ (no smoothing).
+
+\* $\alpha = 0.2$ is typically a good choice, but an optimal value of $\alpha$ can be determined using the data. In particular $\hat{\alpha}$ is the value that minimizes squared error loss function:
+
+\begin{center}
+
+$\sum_{t=1}^ne_t^2=\sum_{t=1}^n(y_t-\hat{y_t})^2$
+
+\end{center}
+
+This is often referred to as an Exponentially Weighted Moving Average(EWMA)
+
+This is why:
+
+$a_t=\alpha y_t+(1-\alpha)a_{t-1}$
+
+  $=\alpha y_t+(1-\alpha)(\alpha y_{t-1}+(1-\alpha)a_{t-2})$
+
+  $=\alpha y_t+(1-\alpha)\alpha y_{t-1}+(1-\alpha)^2a_{t-2}$
+
+  $=\alpha y_t+(1-\alpha)\alpha y_{t-1}+(1-\alpha)^2(\alpha y_{t-2}+(1-\alpha)a_{t-3})$
+
+  $=\alpha y_t+(1-\alpha)\alpha y_{t-1}+(1-\alpha)^2\alpha y_{t-2}+(1-\alpha)^3a_{t-3}$
+
+>.
+
+>.
+
+>.
+
+  $=\alpha\sum_{i=0}^{t-1}(1-\alpha)^iy_{t-i} + (1-\alpha)^ta_0$
+
+where $a_0$ is the initial value of the recursion. A common choice for $a_0$ is $\bar{y}$ but as we see here, what we choose does not really matter.
+
+## Double Exponential Smoothing (DES)
+
+"Level" Equation: $a_t=\alpha y_t +(1-\alpha)(a_{t-1}+b_{t-1})$ (Weighted average of the observed response at time t and the model's corresponding prediction of that observation.)
+
+"Trend" Equation: $b_t = \beta(a_t-a_{t-1})+(1-\beta)b_{t-1}$ (weighted average of current trend component and historical prediction of that same component.)
+
+"Forecast" Equation: $\hat{y}_{t+h}=a_t+hb_t$ for h=1,2,3,...
+
+where $0\le\alpha\le1$ and $0\le\beta\le 1$ are smoothing parameters, where small vlaues provide more smoothing a large values provide less.
+
+## Triple Exponential Smoothing (TES)
+
+"Level" Equation:$a_t=\alpha(y_t-s_{t-m})+(1-\alpha)(a_{t-1}+b_{t-1})$ (weighted average of seasonally adjusted observation and a non-seasonal forecast of it)
+
+"Trend" Equation: $b_t = \beta(a_t-a_{t-1})+(1-\beta)b_{t-1}$ (weighted average between the current seasonal index and the seasonal index of the same period in the previous season)
+
+"Seasonal" Equation: $s_t=\gamma(y_t-a_{t-1}-b_{t-1})+(1-\gamma)s_{t-m}$
+
+Forecast Function : $\hat{y}_{t+h} = a_t+hb_t+s_{t+h-m}$ for h=1,2,3...
+
+where $0\le\alpha\le1,0\le\beta\le1,0\le\gamma\le1$ are smoothing parameters that behave as usual, and that can be estimated from the observed data.
+
+This formulation is referred to as "additive" but when heteroscedasticity is present, we may opt to use a multiplicative version.
+
+LE $\bullet$ $a_t=\alpha(\frac{y_t}{s_{t-m}})+(1-\alpha)(a_{t-1}+b_{t-1})$
+
+TE $\bullet$ $b_t =\beta(a_t-a_{t-1})+(1-\beta)b_{t-1}$
+
+SE $\bullet$ $s_t = \gamma(\frac{y_t}{a_{t-1}+b_{t-1}})+(1-\gamma)s_{t-m}$
+
+FE $\bullet$ $\hat{y}_{t+h}=(a_t+hb_t)s_{t-m}$ for h=1,2,3...
+
+```{r}
+library(forecast)
+par(mfrow = c(1,1))
+plot(LakeHuron, main = "Annual Water Level of Lake Huron", ylab = "Water Level (ft)", xlab = "Time")
+hw.LH <- HoltWinters(x = LakeHuron, beta = F, gamma = F) #SES of Lake Huron data
+par(mfrow = c(2,1))
+plot(hw.LH)
+plot(forecast(hw.LH, h = 5)) #Forecast is a constant. SES not appropriate for a time series with trend.
+```
+
+```{r}
+# Double Exponential Smoothing
+chem <- read.csv(file = "chemical.csv", header = F)
+chem <- ts(data = chem$V1)
+par(mfrow = c(1,1))
+plot(chem, main = "Daily Chemical Concentrations", ylab = "Concentrations", xlab = "Days")
+par(mfrow = c(2,1))
+hw.CH <- HoltWinters(x = chem, gamma = F) 
+plot(hw.CH)
+plot(forecast(hw.CH, h = 7)) #Forecast corresponds to the most recent (and hence strongest) trend component
+```
+
+```{r}
+# Triple Exponential Smoothing -- Additive
+par(mfrow = c(1,1))
+plot(USAccDeaths, main = "Monthly Totals of Accidental Deaths in USA", ylab = "# Deaths", xlab = "Time")
+hw.AD <- HoltWinters(x = USAccDeaths,alpha = 0.2, beta =  0.2, gamma = 0.2,seasonal = "add") 
+par(mfrow = c(2,1))
+plot(hw.AD)
+plot(forecast(hw.AD, h = 60))
+```
+
+```{r}
+# Triple Exponential Smoothing -- Multiplicative
+par(mfrow = c(1,1))
+plot(AirPassengers, main = "Monthly Totals of International Airline Passengers", ylab = "# Passengers", xlab = "Time")
+hw.AP <- HoltWinters(x = AirPassengers, seasonal = "mult") 
+par(mfrow = c(2,1))
+plot(hw.AP)
+plot(forecast(hw.AP, h = 60))
+```
+
+```{r}
+# For interest's sake let's check other versions of smoothing on the AirPassenger data
+par(mfrow = c(4,1))
+plot(forecast(HoltWinters(x = AirPassengers, beta = F, gamma = F), h = 60)) #Single
+plot(forecast(HoltWinters(x = AirPassengers, gamma = F), h = 60))           #Double
+plot(forecast(HoltWinters(x = AirPassengers, seasonal = "add"), h = 60))    #Triple -- Additiive
+plot(forecast(HoltWinters(x = AirPassengers, seasonal = "mult"), h = 60))   #Triple -- Multiplicative
+```
+
+```{r}
+sf.crime <- read.csv(file = "SF_crime_monthly.csv", header = T)
+sf.crime <- sf.crime[1:184,]
+head(sf.crime, 24)
+```
+
+```{r}
+par(mfrow = c(3,2))
+for(i in 4:dim(sf.crime)[2]){
+  if(i == dim(sf.crime)[2]){par(mfrow = c(1,1))}
+  plot(ts(data = sf.crime[,i], start = 2003, frequency = 12), main = paste("Crime type: ", names(sf.crime)[i], sep = ""), ylab = "Number of Incidents", xlab = "Year", xaxt = "n")
+  axis(side = 1, at = 2003:2018, labels = 2003:2018)
+}
+
+```
+
+```{r}
+## Modeling
+## Split data into training (2003-2016) and test (2017-2018)
+train <- sf.crime[1:168,]
+test <- sf.crime[169:184,]
+```
+```{r}
+## Find auto.arima() recommendation for each series
+models <- rep(0, 37)
+for(i in 1:37){
+  temp <- auto.arima(y = ts(data = train[,(i+2)], start = 2003, frequency = 12), d = 1, D = 1, allowdrift = F)
+  p <- temp$arma[1]; q <- temp$arma[2]; P <- temp$arma[3]; Q <- temp$arma[4]; s <- temp$arma[5];d <- temp$arma[6]; D <- temp$arma[7];
+  models[i] <- paste("SARIMA(", p, ",", d, ",", q, ")x(", P, ",", D, ",", Q, ")[", s, "]" , sep = "")
+}
+models.df <- data.frame(Category = names(sf.crime)[3:39], Model = models)
+```
+
+```{r}
+models.df[models.df$Category == "kidnapping",]
+```
+
+```{r}
+## Modeling and Forecasting 'Total'                                                                                         ##
+##############################################################################################################################
+## Auto.arima Model
+total.train <- ts(data = train$total, start = 2003, frequency = 12)
+total.test <- ts(data = test$total, start = 2017, frequency = 12)
+m.aut <- arima(x = total.train, order = c(2,1,2), seasonal = list(order = c(2,1,0), period = 12))
+summary(m.aut)
+
+## Auto.arima Forecast
+f.aut <- forecast(m.aut, h = 16, level = 0.95)
+par(mfrow=c(1,1))
+plot(total.train, main = "Total Crimes in SF", ylab = "# Crimes", xlab = "Year", xlim = c(2003, 2019), ylim = c(min(f.aut$lower, f.aut$upper, f.aut$mean, total.train, total.test), max(f.aut$lower, f.aut$upper, f.aut$mean, total.train, total.test)), xaxt = "n", lwd = 2)
+axis(side = 1, at = 2003:2019, labels = 2003:2019)
+lines(fitted(m.aut), col = "blue", lwd = 1.5)
+abline(v = 2017, lwd = 2, lty = 2)
+lines(total.test, lwd = 2)
+lines(f.aut$mean, col = "blue", lwd = 1.5)
+lines(f.aut$lower, col = "darkred", lwd = 2)
+lines(f.aut$upper, col = "darkred", lwd = 2)
+legend("topleft", legend = c("Observed Values", "Model Predicted", "95% PI"), col = c("black", "blue", "darkred"), lty = 1, lwd = c(2,1.5,2))
+```
+
+```{r}
+## Auto.arima RMSE
+sqrt(mean((total.test - f.aut$mean)^2))
+
+## Manual SARIMA Model
+## Raw
+par(mfrow = c(2,1))
+acf(total.train, lag.max = 48)
+pacf(total.train, lag.max = 48)
+```
+
+```{r}
+## Ordinary Differenced
+par(mfrow = c(2,1))
+acf(diff(total.train), lag.max = 48)
+pacf(diff(total.train), lag.max = 48)
+```
+
+```{r}
+## Ordinary and Seasonally Differenced
+par(mfrow = c(2,1))
+acf(diff(diff(total.train), lag = 12), lag.max = 48)
+pacf(diff(diff(total.train), lag = 12), lag.max = 48)
+
+```
+
+```{r}
+m.man <- arima(x = total.train, order = c(3,1,0), seasonal = list(orders=c(2,1,0), period = 12))
+summary(m.man)
+```
+
+```{r}
+## Manual SARIMA Forecast
+f.man <- forecast(m.man, h = 16, level = 0.95)
+par(mfrow=c(1,1))
+plot(total.train, main = "Total Crimes in SF", ylab = "# Crimes", xlab = "Year", xlim = c(2003, 2019), ylim = c(min(f.man$lower, f.man$upper, f.man$mean, total.train, total.test), max(f.man$lower, f.man$upper, f.man$mean, total.train, total.test)), xaxt = "n", lwd = 2)
+axis(side = 1, at = 2003:2019, labels = 2003:2019)
+lines(fitted(m.man), col = "blue", lwd = 1.5)
+abline(v = 2017, lwd = 2, lty = 2)
+lines(total.test, lwd = 2)
+lines(f.man$mean, col = "blue", lwd = 1.5)
+lines(f.man$lower, col = "darkred", lwd = 2)
+lines(f.man$upper, col = "darkred", lwd = 2)
+legend("topleft", legend = c("Observed Values", "Model Predicted", "95% PI"), col = c("black", "blue", "darkred"), lty = 1, lwd = c(2,1.5,2))
+```
+
+```{r}
+## Manual SARIMA RMSE
+sqrt(mean((total.test - f.man$mean)^2))
+
+## Holt-Winters Model
+m.hw <- HoltWinters(x = total.train, seasonal = "additive")
+m.hw
+
+```
+
+```{r}
+## Holt-Winters Forecast
+f.hw <- forecast(m.hw, h = 16, level = 0.95)
+par(mfrow=c(1,1))
+plot(total.train, main = "Total Crimes in SF", ylab = "# Crimes", xlab = "Year", xlim = c(2003, 2019), ylim = c(min(f.hw$lower, f.hw$upper, f.hw$mean, total.train, total.test), max(f.hw$lower, f.hw$upper, f.hw$mean, total.train, total.test)), xaxt = "n", lwd = 2)
+axis(side = 1, at = 2003:2019, labels = 2003:2019)
+lines(m.hw$fitted[,1], col = "blue", lwd = 1.5)
+abline(v = 2017, lwd = 2, lty = 2)
+lines(total.test, lwd = 2)
+lines(f.hw$mean, col = "blue", lwd = 1.5)
+lines(ts(f.hw$lower, start = 2017, frequency = 12), col = "darkred", lwd = 2)
+lines(ts(f.hw$upper, start = 2017, frequency = 12), col = "darkred", lwd = 2)
+legend("topleft", legend = c("Observed Values", "Model Predicted", "95% PI"), col = c("black", "blue", "darkred"), lty = 1, lwd = c(2,1.5,2))
+```
+
+```{r}
+## Holt-Winters RMSE
+sqrt(mean((total.test - f.hw$mean)^2))
+
+```
+
+```{r}
+train.trea <- ts(train$trea,start = 2003,frequency=12)
+test.trea <- ts(train$trea,start = 2017,frequency=12)
+
+m.aut <- auto.arima(train.trea)
+m.aut
+plot(train.trea)
+f <- train$trea-m.aut$residuals
+lines(f, col='red')
+
+```
+
+```{r}
+#plot(ts(sf.crime$kidnapping,start =2003, frequency=12))
+train.kid <- ts(sf.crime$kidnapping,start =2003, frequency=12)
+test.kid <- ts(sf.crime$kidnapping,start =2017, frequency=12)
+plot(train.kid)
+acf(train.kid)
+pacf(train.kid)
+ndiffs(train.kid)
+nsdiffs(train.kid)
+acf(diff(train.kid),lag.max=48)
+pacf(diff(train.kid),lag.max=48)
+```
+```{r}
+acf(diff(BocCox(train.kid, lambda = 0.1882929)),lag.max=48)
+pacf(diff(BoxCox(train.kid,lambda=0.1882929)),lag.max=48)
+BoxCox.lambda(train.kid)
+#m <- arima(x=train.kid)
+```
+
+```{r}
+m <- Arima(y=train.kid, order = c(0,1,1), lambda=BoxCox.lambda(train.kid))
+m.aut <- auto.arima(train.kid,lambda=BoxCox.lambda(train.kid))
+m.aut
+```
+
+```{r}
+f.aut <- forecast(m.aut,h=16)
+f.man <- forecast(m,h=16)
+plot(f.aut)
+plot(f.man)
+rmse.man <- sqrt(mean(test.kid-f.man$mean)^2)
+rmse.aut <- sqrt(mean(test.kid-f.aut$mean)^2)
+rmse.man
+rmse.aut
+f.hw <- forecast(HoltWinters(x=train.kid, seasonal="multiplicative"))
+plot(f.hw)
+rmse.hw <- sqrt(mean(test.kid-f.hw$mean)^2)
+```
+

@@ -1,0 +1,261 @@
+---
+title: "Nov 15 Notes"
+author: "Hongdou Li"
+date: "11/15/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Addressing Seasonality
+
+Ordinary differencing $\nabla Y_t=(1-B)Y_t=Y_t-Y_{t-1}$ doesn't work to remove seasonal effects. For this, we need to perform **Seasonal differencing**.
+
+Notation: $\nabla _k =(1-B^k)$
+
+>> $\nabla_k Y_t=(1-B^k)Y_t = Y_t-Y_{t-k}$ <= "lag k" differencing
+
+\* This is different from $\nabla^k$ ($(1-B)^k$) which signifies k iterations of ordinary (lag 1) differencing.
+
+Idea: A seasonal effect of period m manisfests itself as $s_t=s_{t\pm m}$. This sort of seasonal effect can be eliminated/ mitigated by finitely many applications of lag lag-m differencing.
+
+Ex: $Y_t=s_t+\epsilon_t$ where $s_t$ is a seasonal effect with period m.
+
+$D_mY_t = (1-B^m)Y_t=(1-B^m)(s_t+\epsilon_t)$
+
+>$=(s_t-s_{t-m})+(\epsilon_t-\epsilon_{t-m})$
+
+>$= 0 + (\epsilon_t-\epsilon_{t-m})$
+
+>$= \nabla_m\epsilon_t$
+
+The goal is ingeneral to use ordinary differencing to eliminate trend and seasonal differencing to account for seasonality. Thus, both types of differencing may be necessary.
+
+\* the order of differencing does not matter. Mathematically the resultant series will be identical.
+
+### Illustration: suppose we need to ordinarily difference d times, and lag-m difference D times.
+\begin{center}
+$\nabla^d\nabla_m^DY_t=(1-B)^d(1-B^m)^DY_t$
+
+$\nabla_m^D\nabla^dY_t=(1-B^m)^D(1-B)^dY_t$
+\end{center}
+
+How do we choose m? The period m is the number of lags required for one iteration of the seasonal effect on an ACF plot.
+
+## SARIMA "Seasonal ARIMA"
+
+$\{Y_t\}\sim SARIMA(p,d,q)_{\times}(P,D,Q)_m$ if $X_t=(1-B)^d(1-B^m)^DY_t$ can be modeled by a stationary ARMA model:
+\begin{center}
+$\phi^*(B)X_t=\theta^*(B)\epsilon_t$
+
+$\phi^*(B)=\phi(B)\Phi(B^n)$
+
+$\theta^*(B)=\theta(B)\Theta(B^m)$
+\end{center}
+
+$\phi(Z)=1-\phi_1Z-\phi_2Z^2-...-\phi_pZ^p$  <= $p^{th}$ degree polynomial
+
+$\Phi(Z)=1-\Phi_1Z-\Phi_2Z^2-...-\Phi_PZ^P$  <= $P^{th}$ degree polynomial
+
+$\theta(Z) = 1+\theta_1Z+\theta_2Z^2+...+\theta_qZ^q$ <= $q^{th}$ degree polynomial
+
+$\Theta(Z) = 1+\Theta_1Z+\Theta_2Z^2+...+\Theta_QZ^Q$ <= $Q^{th}$ degree polynomial
+
+\begin{center}
+$\phi(B)\Phi(B^m)(1-B)^d(1-B^m)^DY_t=\theta(B)\Theta(B^m)\epsilon_t$
+\end{center}
+
++ Idea: The data within a season can be viewed as a **within-season** time series. The data between seasons can be viewed as a **between-season** time series. These two time series may have different ARMA representations.
+
+EX: Suppose $\{Y_t\}$ is observed quarterly and so it has a seasonal effect of period m=4
+
+\begin{center}
+$\begin{matrix}y_1&y_2&y_3&y_4\\y_5&y_6&y_7&y_8\\y_9&y_{10}&y_{11}&y_{12}\\y_{13}&y_{14}&y_{15}&y_{16}\\&...&...\end{matrix}$
+\end{center}
++ Rows represent with-season time series which may be modeled by ARMA(p,q)
+
++ Columns represent between-season time series which may be modeled by ARMA(P,Q)
+
++ p,q = AR, MA orders of the within season model.
+
++ P,Q = AR, MA orders of the between season model.
+
+## Order Selection
+
++ STEP 1: Choose d,m,D such that $X_t=(1-B)^d(1-B^m)^DY_t$ is stationary.
+
++ STEP 2: Examine ACF and PACF plots of $\{X_t\}$ to determine p,P,q,Q
+
+>> => p and q are choosen such that $\rho(1),\rho(2),...,\rho(m-1)$ and $\alpha(1),\alpha(2),...\alpha(m-1)$ are consistent with ARMA(p,q)
+
+>> => P and Q are choosen such that $\rho(km)$ and $\alpha(km)$ for k=1,2,3... are consistent with ARMA(P,Q)
+
+\* This procedure will provide sensible first guesses for p,q, P,Q, but optimal orders should be determined via comparison of goodness-of-fit metrics and likelihood ratio tests.
+
+## Box-Jenkins Methodology
+
+1. Check for non-constant variance and apply a transformation if necessary. (Box-Cox: $Y^*=\begin{cases}log(y) & if\ \lambda=0\\(y^{\lambda}-1)/\lambda&if\lambda\ne0\end{cases}$)
+
+2. Chcek for Seasonality and trend and difference as necessary.
+
+3. Identify p,q, P,Q from ACF/PACF plots of the differenced data. Hence, choose a model.
+
+4. Fit proposed model and iterate to an optimal one.
+
+5. Check using the residuals, that the model assumptions are valid.
+
+6. Forecast into the future.
+
+```{r}
+library(forecast)
+library(tseries)
+
+#######################
+## Airpassenger Data ########################################################################
+#######################
+# Use the AirPassengers data. Recall we log-transform it to remove heteroscedasticity.
+par(mfrow=c(1,1))
+plot(AirPassengers)
+par(mfrow=c(2,1))
+plot(log(AirPassengers))
+acf(log(AirPassengers), lag.max = 48)
+```
+
+```{r}
+# The raw time series is clearly not stationary. Try differencing once:
+par(mfrow=c(2,1))
+AP1 <- diff(log(AirPassengers))
+plot(AP1, ylab = "AP1")
+acf(AP1, lag.max = 144)
+adf.test(AP1)
+```
+```{r}
+par(mfrow=c(2,1))
+AP1.12 <- diff(AP1, lag = 12)
+plot(AP1.12)
+acf(AP1.12, lag.max = 144)
+```
+
+```{r}
+# Let's use hypothesis tests to decide how much differencing might have been necessary
+ndiffs(log(AirPassengers))
+nsdiffs(log(AirPassengers), m = 12)
+```
+
+```{r}
+# This looks good, so choose d=1, D=1, s=12. Let's check ACF and PACF to choose p, q, P, Q.
+acf(AP1.12, lag.max = 48)
+pacf(AP1.12, lag.max = 48)
+```
+
+```{r}
+# Maybe p <= 3, q = 1, and P = Q = 1
+m <- arima(log(AirPassengers), order = c(3,1,1), seasonal = list(order = c(1,1,1), period = 12), method = "CSS-ML")
+summary(m)
+```
+
+```{r}
+# Plot the times series and fitted values
+par(mfrow=c(1,1))
+plot(log(AirPassengers))
+fit <- log(AirPassengers) - m$residuals
+lines(fit, col = "red")
+legend("bottomright", legend = c("Observed", "Predicted"), lty = 1, col = c("black", "red"), cex = 0.5)
+```
+```{r}
+# Recreate plots on the raw scale
+plot(AirPassengers)
+lines(exp(fit), col = "red")
+legend("bottomright", legend = c("Observed", "Predicted"), lty = 1, col = c("black", "red"), cex = 0.5)
+```
+```{r}
+# We should check model diagnostics as we normally would with an ARMA model. Specifically, checking the heteroscedasticity 
+# assumption can lead to an optimal choice of variance-stabilizing transformation
+plot(m$residuals, main = "Residuals vs. Time", ylab = "Residuals")
+abline(h = 0, col = "red")
+acf(m$residuals, main = "ACF of Residuals")
+qqnorm(m$residuals)
+qqline(m$residuals, col = "red")
+shapiro.test(m$residuals)
+```
+```{r}
+# Forecast
+plot(forecast(object = m, h = 60, level = 0.95))
+```
+```{r}
+# Let's see which model auto.arima chooses as being optimal
+auto.arima(log(AirPassengers), allowdrift = FALSE)
+```
+
+```{r}
+wine <- read.csv("wine.csv", header = TRUE)
+wine <- wine$Consumption
+wine <- ts(data = wine, start = c(2001,1), frequency = 12)
+plot(wine, main = "Monthly Wine Consumption", ylab = "Consumption", xlab = "Month")
+```
+
+```{r}
+# Check whether ordinary and/or seasonal differencing seems necessary
+par(mfrow=c(1,1))
+acf(wine, lag.max = 48)
+```
+
+```{r}
+# Both forms of differencing seems necessary. Let's do ordinary first:
+dwine <- diff(wine)
+par(mfrow=c(2,1))
+plot(dwine, main = "Trend Adjusted Monthly Wine Consumption", ylab = "Consumption", xlab = "Month")
+acf(dwine, lag.max = 48)
+```
+
+```{r}
+# Still need seasonal differencing:
+dwine.12 <- diff(dwine, lag = 12)
+par(mfrow=c(2,1))
+plot(dwine.12, main = "Trend and Seasonally Adjusted Monthly Wine Consumption", ylab = "Consumption", xlab = "Month")
+acf(dwine.12, lag.max = 48)
+```
+
+```{r}
+# This seems fine now. Since we seasonally differenced, we are fitting a SARIMA 
+# model and need to choose p, q, P, Q. Let's look at the ACF/PACF plots for this
+par(mfrow=c(2,1))
+acf(dwine.12, lag.max = 48)
+pacf(dwine.12, lag.max = 48)
+```
+
+```{r}
+# p = 4, q <= 1, P = Q = 1?
+m <- arima(x = wine, order = c(4,1,1), seasonal = list(order = c(1,1,1), period = 12))
+m
+```
+
+```{r}
+# Let's visualize how well this model fits the data:
+f <- wine - m$residuals #fitted values
+par(mfrow=c(1,1))
+plot(wine, type = "l", main = "Monthly Wine Consumption", ylab = "Consumption", xlab = "Month")
+points(f, type = "l", col = "red")
+legend("bottomright", legend = c("Observed", "Predicted"), lty = 1, col = c("black", "red"), cex = 0.5)
+```
+
+```{r}
+# Residual Diagnostics:
+par(mfrow=c(1,1))
+plot(m$residuals, main = "Residuals vs. Time", ylab = "Residuals")
+abline(h = 0, col = "red")
+acf(m$residuals, main = "ACF of Residuals")
+qqnorm(m$residuals)
+qqline(m$residuals, col = "red")
+shapiro.test(m$residuals)
+
+```
+
+```{r}
+# Forecast
+plot(forecast(object = m, h = 60, level = 0.95))
+
+```
+

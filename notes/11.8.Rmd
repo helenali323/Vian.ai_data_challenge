@@ -1,0 +1,231 @@
+---
+title: "Nov 8 - Notes"
+author: "Hongdou Li"
+date: "11/8/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Recap:
+
++ $\{Y_t\} \sim ARMA(p,q)$ if :
+
+\begin{center}
+$Y_t = \phi_1Y_{t-1}+\phi_2Y_{t-2}+...+\phi_pY_{t-p}+\epsilon_t+\theta_1\epsilon_{t-1}+\theta_2\epsilon_{t-2}+...+\theta_q\epsilon_{t-q}$
+
+$\phi(B)Y_t=\theta(B)\epsilon_t$
+\end{center}
+
+where $\{\epsilon_t\}\sim WN(0,\sigma^2)$ and 
+
+>>+ $\phi(Z) = 1-\phi_1Z-\phi_2Z^2-...-\phi_pZ^p$
+
+>>+ $\theta(Z) = 1+\theta_1Z+\theta_2Z^2+...+\theta_qZ^q$
+
++ An ARMA(p,q) model is stationary **iff** the zeros of $\phi(Z)$ lie outside the unit circle in the complex plane.
+
++ An ARMA(p,q) model is invertible **iff** the zeros of $\theta(Z)$ lie outside the unit-circle in the complex plane.
+
+## Estimating ARMA(p,q) models 
+
+Goal: Use observed data $\{y_1,y_2...y_n\}$we want to estimate all of the parameters:$\phi_1,\phi_2...\phi_p,\theta_1,\theta_2...\theta_q,\sigma$. We'll discuss two methods of estimation. They are (1)** Maximum Likelihood estimation**, and (2)** Least Squares Estimation**.
+
+
+## ML Estimation
+
++ To do this, we need to make assumption about distribution of the errors, and hence the data.
+
+$\overrightarrow{\epsilon}=\begin{bmatrix}\epsilon_1\\\epsilon_2\\.\\.\\\epsilon_n\end{bmatrix} \sim MVN(\overrightarrow{0},\sigma^2I)$
+where I is nxn 
+$\overrightarrow{Y} =\begin{bmatrix}Y_1\\Y_2\\.\\.\\Y_n\end{bmatrix} \sim MVN(\overrightarrow{0},\Gamma)$
+
+where $\Gamma=\begin{bmatrix}\gamma(0)&\gamma(1)&\gamma(2)&...&\gamma(n-1)\\\gamma(1)&\gamma(0)&\gamma(1)&...&\gamma(n-2)\\\gamma(2)&\gamma(1)&\gamma(0)&...&\gamma(n-3)\\.\\\ & & &...&\gamma(0)\end{bmatrix}$
+
+with distributional assumption, we can write the likelihood function as:
+
+$L(\phi_1...\phi_p,\theta_!,...\theta_q,\sigma)=\frac{1}{(2\pi)^{n/2}|\Gamma|^{1/2}}e^{-1/2\bar{y}^T\Gamma^{-1}\bar{y}}$
+
+$|\Gamma|^{1/2}$ is the determinant
+
+Where $\bar{y}=(y_1,y_2,...y_n)^T$ we want to maximize the function and specifically determine the parameter values at which the maximum is attained.
+
+## LS Estimation
+We want the values of $\phi_1,\phi_2...\phi_p,\theta_1,\theta_2...\theta_q,\sigma$ that minimize error specifically sum of squared error:
+
+$S(\phi_1,...,\phi_p,\theta_1...\theta_q) = \sum_{t=1}^n(Y_t-\hat{Y_t})^2$
+
+Notice, This is not a function of $\theta$. We estimate $\theta$ after having estimated the $\phi$'s and $\theta$'s to be:
+
+\begin{center}
+$\hat{\sigma}=\sqrt{\frac{S(\hat{\phi},\hat{\theta})}{n-p-q}}$
+\end{center}
+
+where $S(\hat{\phi},\hat{\theta})$  sum of squared residuals (residuals are like estimated value of errors)
+
+Once a model has been fit to data, we should verify that it follows the assumptions we assume that it does. Specifically we assume that $\{\epsilon_t\}\sim WN(0,\sigma^2)$. We can think of residuals $\{e_t\}$ as sample observations of $\{\epsilon_t\}$ and so we expect the residuals to behave in the same way. Specifically we check whether $\{e_t\}$:
+
+>+ have zero=mean
+
+>+ have constant variance
+
+>+ are uncorrelated
+
+>+ follow a normal distribution <- ( if we used MLEstimation)
+
+In general, we can view model-fitting as a multi-stage process:
+
+1. Order Selection
+
+2. Model Fitting
+
+3. Verification
+
+4. Forecasting
+
+```{r}
+plot(BJsales)
+```
+
+
+you want to git rid of trend inoder to get the stationary data. after taking the first difference there is still trend. so we take the second difference.
+```{r}
+#Instead we'll use the twice-differenced version of this time series.
+BJ2 <- diff(diff(BJsales))
+plot(BJ2)
+```
+```{r}
+par(mfrow=c(2,1))
+acf(BJ2)
+pacf(BJ2)
+```
+
+lookingat this, there is no exponential decay in both ACF and there seems exponential decay in PACF. MA(1) model will fit the model well.
+
+Or one can say that there is no exponential decay in PACF. so that might be ARMA(3,1)
+
+```{r}
+fit.ar <- arima(BJ2, order=c(3,0,0),include.mean=FALSE) #AR(3)
+fit.ar
+fit.ma <- arima(BJ2, order=c(0,0,1),include.mean=FALSE) #MA(1)
+fit.ma
+fit.arma <- arima(BJ2, order=c(3,0,1),include.mean=FALSE) #ARMA(3,1)
+fit.arma
+
+```
+log-likelihood is the smaller the better.
+
+```{r}
+fitls.ar <- arima(BJ2, order=c(3,0,0), method="CSS") #AR(3)
+fitls.ar
+fitls.ma <- arima(BJ2, order=c(0,0,1), method="CSS") #MA(1)
+fitls.ma
+fitls.arma <- arima(BJ2, order=c(3,0,1), method="CSS") #ARMA(3,1)
+fitls.arma
+```
+we don't have protection from overfitting (AIC) when we do least square estimation.
+
+```{r}
+#We can fit any number of models of different orders and use the output information to select 
+#the model with the best fit. 
+m1<-arima(BJ2,order=c(1,0,0))
+m2<-arima(BJ2,order=c(2,0,0))
+m3<-arima(BJ2,order=c(3,0,0))
+m4<-arima(BJ2,order=c(4,0,0))
+m5<-arima(BJ2,order=c(0,0,1))
+m6<-arima(BJ2,order=c(0,0,2))
+m7<-arima(BJ2,order=c(1,0,1))
+m8<-arima(BJ2,order=c(2,0,1))
+m9<-arima(BJ2,order=c(3,0,1))
+m10<-arima(BJ2,order=c(4,0,1))
+m11<-arima(BJ2,order=c(1,0,2))
+m12<-arima(BJ2,order=c(2,0,2))
+m13<-arima(BJ2,order=c(3,0,2))
+m14<-arima(BJ2,order=c(4,0,2))
+
+sigma2<-c(m1$sigma2,m2$sigma2,m3$sigma2,m4$sigma2,m5$sigma2,m6$sigma2,m7$sigma2,m8$sigma2,m9$sigma2,m10$sigma2,m11$sigma2,m12$sigma2,m13$sigma2,m14$sigma2)
+loglik<-c(m1$loglik,m2$loglik,m3$loglik,m4$loglik,m5$loglik,m6$loglik,m7$loglik,m8$loglik,m9$loglik,m10$loglik,m11$loglik,m12$loglik,m13$loglik,m14$loglik)
+AIC<-c(m1$aic,m2$aic,m3$aic,m4$aic,m5$aic,m6$aic,m7$aic,m8$aic,m9$aic,m10$aic,m11$aic,m12$aic,m13$aic,m14$aic)
+d <- data.frame(pq = c("(1,0)","(2,0)","(3,0)","(4,0)","(0,1)","(0,2)","(1,1)","(2,1)","(3,1)","(4,1)","(1,2)","(2,2)","(3,2)","(4,2)"),sigma2,loglik,AIC)
+d
+# Order this by sigma2
+#d[order(d$sigma2),]
+
+# Order this by loglik
+#d[order(-d$loglik),]
+
+# Order this by AIC
+#d[order(d$AIC),]
+
+```
+
+
+## More on order selection
+
++ We use $\hat{\sigma}^2$, $logL(\hat{\phi},\hat{\theta},\hat{\sigma})$ and AIC to help choose an optimal model (ie., the best p and q). all three of them are smaller better.
+
++ Note AIC includes a penalty for having an overly complicated model, and hence protect us from over-fitting. The other metrics don't do this.
+
++ $AIC=-2logL(\hat{\phi},\hat{\theta},\hat{\sigma})+2(p+q+1)$ (Akaike Information Criterion)
+
++ corrected version of AIC: $AICC = -2logL(\hat{\phi},\hat{\theta},\hat{\sigma}) + \frac{2(p+q+1)n}{n-p-q-2}$
+
+\* Note that we cannotcalculate these information criterion if we do LSEstimation.
+
+We can formally compare "nested" models using a **likelihood ratio test** (LRT)
+
+\begin{center}
+
+$H_0$: reduced and full models fit the data equally well
+
+vs.
+
+$H_1$: the full model fits the data better than the reduced model
+
+$D=-2log[\frac{L(\text{reduced model})}{L(\text{full model})}]$
+\end{center}
+
+Where $m_F$ = # parameters in full model
+
+> $m_R$ = # parameters in reduced model
+
+\* Large values of D provide evidence against $H_0$.
+
+```{r}
+# Compare MA(1) with ARMA(1,2)
+D <- -2*(m5$loglik - m11$loglik)
+pval <- 1-pchisq(D,2)
+print(c("Test Statistic:", round(D, 4), "P-value:", round(pval, 4)))
+```
+
+for the lab, We may choose to use MA(1) because it is simpler.
+
+```{r}
+# Fit the MA(0,1) model to the data:
+MA1 <- arima(BJsales, order = c(0,2,1)) # 2 means we take 2 differences 
+MA1_fit <- BJsales - MA1$residuals
+par(mfrow=c(1,1))
+plot(BJsales)
+points(x = 1:150, y = MA1_fit, type = "l", col = "red") 
+```
+
+```{r}
+# Once we choose a model, we perform Step #3: Verification. That is, we perform model diagnostics 
+# using the residuals in a manner similar to OLS. 
+par(mfrow = c(1,1))
+acf(MA1$residuals, main = "ACF of MA(1) Residuals")
+qqnorm(MA1$residuals, main = "QQ-plot of MA(1) Residuals")
+qqline(MA1$residuals, col = "red")
+ts.plot(MA1$residuals, main = "MA(1) Residuals", ylab = "Residuals")
+abline(h = c(-3,3), col = "red", lty = 2)
+```
+
+Augmented Dickey-Fuller Test to test the stationary 
+```{r}
+#install.packages('aTSA')
+library(aTSA)
+adf.test(BJsales)
+```
+

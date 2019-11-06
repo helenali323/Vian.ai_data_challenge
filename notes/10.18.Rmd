@@ -1,0 +1,166 @@
+---
+title: "10.18 Notes"
+author: "Hongdou Li"
+date: "10/18/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## What is a Time Series?
+
+Atime series is a collection of data points corresponding to temporal measurements of some quantitative variable.
+
+A time series is best visualized as a scatter plot of y versus t with adjacent points connected by a straight line. We call such plot a time series plot.
+
+A time series plot clearly displays the relationship between the variable y and time.
+Time series analysis typically refers to modeling the relationship between the variable y and time.
+
+A time series model characterizes the nature of the relationship between $y_{t+1}$ and {$y_1,y_2,...,y_t$}. in general a model will take the form 
+
+$$y_{t+1} = f(y_1,y_2,...y_t)$$
+
+and we use such a model to predict the value of $y_{t+1}$ given the history {$y_1,y_2,...,y_t$} already observed. we call this form of prediction forecasting.
+
+## What is TS Analysis & Forecasting?
+At a very general level we can think of time series analysis and forecasting as: Trying to understand the past to predict the future.
+
+Time series models can be broadly classified into two different types:
+
+* Univariate
+
+** Future values of y are forecasted using only knowledge of past values of y.
+
+* Multivariate
+
+** Future values of y are forecasted using past values of y and past values of one or more other variables $x_1,x_2,x_3,....$
+
+## Modeling a time Series
+
+Regardless of the classification, effective time series models (of either kind) account for the following three important features of a time series.
+
+** Serial Correlation
+
+Serial correlation refers to the phenomenon whereby observations  closer together in time tend to be more similar than observations further apart in time.
+
+Serial correlation is quantified by the autocorrelation function.
+
+we can visualize the extent of sutocorrelation in a given time series using ACF plots - plots of the autocorrelation function Corr($y_t,y_{t+h}$) versus the lag h.
+
+** Trend
+
+Trend is consistent directional movement in a time series.
+
+Trend may correspond to consistent increases and/or decreases in a given time series.
+
+Trend typifies the general, smoothed, behavior of a time series.
+
+** Seasonality
+
+Seasonality is a characteristic of a time series in which the data experiences regular and predictable fluctuations according to some period. we would say that the autocorrelation of lag s ($Corr(y_t,y_{t+s})$) is large.
+
+## Modeling a Time Series
+
+Effective time series models handle both trend and seasonality by accounting for various autocorrelation structures in the observed data. Random variation is unavoidable and the chief contributor to model uncertainty.
+
+Time Series Decomposition: A time series model that can capture the trend and/or seasonality in a dataset will effectively explain the behavior of the time series on average.
+
+And a model that captures the expected behavior of the time series should be able to accurately forecast future values.
+
+With this goal in mind- trying to capture trend and/or seasonality- we now discuss some specific modeling approaches.
+```{r}
+data(AirPassengers)
+plot(AirPassengers)
+```
+
+Plooting the time series data. Notice that the data is already in the form of a time series. but the variability becomes bigger and bigger. so we need to do a transformation
+
+```{r}
+plot(log(AirPassengers))
+```
+
+```{r}
+#prepare for modeling
+t <- time(AirPassengers) # Extracting time as the explanatory variate from the time series framework of data
+cycle(AirPassengers) # introducing month as the season
+month <- as.factor(cycle(AirPassengers))
+```
+
+
+```{r}
+# Model the data
+reg0 <- lm(log(AirPassengers)~t)
+summary(reg0)
+plot(log(AirPassengers))
+points(t,predict.lm(reg0),type='l',col='red')
+```
+
+```{r}
+reg1 <- lm(log(AirPassengers)~month)
+summary(reg1)
+plot(log(AirPassengers))
+points(t,predict.lm(reg1), type='l',col='red')
+```
+```{r}
+reg2 <- lm(log(AirPassengers)~t+month)
+summary(reg2)
+plot(log(AirPassengers))
+points(t,predict.lm(reg2), type='l',col='red')
+```
+```{r}
+# Exponentiating the fitted values to reverse the log transformation
+par(mfrow=c(1,1))
+plot(AirPassengers)
+points(t,exp(predict.lm(reg2)),type='l',col='red')
+```
+```{r}
+#Diagnostic plots for reg2 model
+par(mfrow=c(2,2))
+plot(reg2$fitted, reg2$residuals, main='Residuals vs. Fitted Values', ylab='Residuals', xlab='Fitted values')
+abline(h=0,col='red',lwd=2)
+qqnorm(reg2$residuals)
+qqline(reg2$residuals,col='red')
+plot(reg2$residuals, main='Residuals vs. Time', ylab='Residuals', xlab='Time')
+abline(h=0,col='red',lwd=2)
+acf(reg2$residuals,main='ACF Plot of Residuals')
+```
+
+Notice that the residual seems non-linear, we add a quadratic term.
+```{r}
+par(mfrow=c(2,1))
+t2 <- t^2
+reg4 <- lm(log(AirPassengers)~t+t2+month)
+summary(reg4)
+plot(log(AirPassengers))
+points(t,predict.lm(reg2), type='l',col='red')
+plot(AirPassengers)
+points(t,exp(predict.lm(reg4)),type='l',col='red')
+```
+
+```{r}
+# Prediction in data
+t.new <- seq(1961, 1963, length=25)[1:24]
+t2.new <- t.new^2
+month.new <- factor(rep(1:12,2))
+new <- data.frame(t=t.new,t2=t2.new,month=month.new)
+pred <- predict.lm(reg4,new,interval='prediction')
+#par(mforw=c(1,1))
+plot(AirPassengers,xlim=c(1949,1963),ylim=c(0,900))
+abline(v=1961,col='blue',lty=2)
+lines(exp(pred[,1])~t.new,type='l',col='red')
+lines(exp(pred[,2])~t.new,col='green')
+lines(exp(pred[,3])~t.new,col='green')
+```
+```{r}
+par(mfrow=c(2,2))
+plot(reg4$fitted, reg4$residuals, main='Residuals vs. Fitted Values', ylab='Residuals', xlab='Fitted values')
+abline(h=0,col='red',lwd=2)
+qqnorm(reg4$residuals)
+qqline(reg4$residuals,col='red')
+plot(reg4$residuals, main='Residuals vs. Time', ylab='Residuals', xlab='Time')
+abline(h=0,col='red',lwd=2)
+acf(reg4$residuals,main='ACF Plot of Residuals')
+```
+

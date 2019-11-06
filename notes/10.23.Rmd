@@ -1,0 +1,157 @@
+---
+title: "Notes-Oct23"
+author: "Hongdou Li"
+date: "10/23/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+A **time series** is a **stochastic process** indexed by time. Specially we have a sequence of random variables. 
+
+$\{Y_t: t\in N\} = \{Y_0, Y_1,Y_2...\}=\{Y_t\}$
+
+lower case y are observed random variables. the sequence $\{y_t\}=\{y_1,y_2,y_3...\}$ represent an observed time series ehat $y_t$ is a realization of the random variable $Y_i$
+(stochastic process: sequence of random variables)
+
+The idea is to understand the probabilistic behavior of $\{Y_t\}$ in order to model/forecast $\{y_t\}$
+
+**A time series model** is the specification of the joint distribution of the random variables in $\{Y_t\}$:
+
+\begin{center}
+$P(Y_1\leq y_1, Y_2\leq y_2,...,Y_n\leq y_n)$ where $y_1,y_2,y_3...\in R$
+\end{center}
+
+(however, it is not practical in practice. because when data set increases there will be too much parameters.()
+
+However, specifying such a joint distribution is typically infeasible in practice since there typically won't be enough information to estimate all of the parameters required.
+
+**But**: Most of a distributions characteristics can be described with $1^{st}$ and $2^{nd}$ moments:
+
++ $E[Y_t], t=1,2,...$ (means)
+
++ $E[Y_t,Y_{t+h}], t= 1,2,... h>=0$ (variance covariance)
+
++ special case : $\{\bar{Y_t}\}\sim MVN(\bar{\mu},\Sigma)$
+
+MVN :multivariate normal
+
+$\mu_i= E[Y_i]$, $\Sigma_{ii} = Var(Y_i)$, $\Sigma_{ij} = Cov[Y_i,Y_j]$
+
+Take away: we don't need the whole joint distribution of $\{Y_t\}$, we can rely on knowing the $1^{st}$ and $2^{nd}$ moments there will be a loss of information, but it won't be substantial.
+
+## Zero-Mean Models
+
+$\bullet$ IID Noise:
+
+$\{\epsilon_t\} \sim IID(0,\sigma^2)$
+
++ $E[\epsilon_t]=0$
+
++ $Var[\epsilon_t]=\sigma^2$
+
++ $\epsilon_t$ and $\epsilon_{t+h}$ (for h > 0) are independent
+
++ $\epsilon_t$  all follows the same distribution.
+
+$\bullet$  White Noise:
+
+$\{\epsilon_t\} \sim WN(0,\sigma^2)$
+
++ $E[\epsilon_t]=0$
+
++ $Var[\epsilon_t]=\sigma^2$
+
++ $Cov(\epsilon_t, \epsilon_{t+h}) = 0$ (for h > 0)
+
++ IID is a special case of WN
+
+$\bullet$ Random Walk:
+
+$\epsilon_t = \begin{cases} +1  &with \ prob \ 1/2 \\ -1 &with \ prob \ 1/2 \end{cases}$  independently
+
+$\{S_t\}$ where $S_t=\sum_{k=1}^t\epsilon_k$ and $S_0=0$
+
+This is zero -mean because $E[S_t]=\sum_{k=1}^tE[\epsilon_t] = \sum_{k=1}^t[1/2+(-1)1/2]=0$
+
+
+## Stationary 
+
+A time series $\{Y_t\}$ is said to **strictly stationary** if the joint distribution of $Y_{t1}, Y_{t2}, Y_{t3},....,Y_{tn}$ is the same as that of $Y_{t1+h}, Y_{t2+h}, Y_{t3+h},....,Y_{tn+h}$ for $t1,t2,t3...tn,h\in N$. In other words $\{Y_t^2\}$ is strictly stationary if **all** of its statistical properties are preserved under time shifts.
+
+Verifying the strict stationary conditions is difficult in practice and so we will use a weaker definition of stationary defined in terms of the $1^{st}$ and $2^{nd}$ moments.
+
+$\bullet$  Define first:
+
++ Mean function:
+
+$\mu(t)=E[Y_t]$
+
++ Covariance Function:
+
+>> $\gamma(r,s) = Cov(Y_r,Y_s)= E(Y_r,Y_s)-E[Y_r]E[Y_s]$
+
+A time series $\{Y_t\}$ is said to weakly stationary if :
+
+(i) $\mu(t)=E[Y_t]$ must be independent of t.
+
+(ii) $\gamma (t,t+h)=Cov(Y_t,Y_{t+h})$ must be independent of t for all h
+      * covariance only depends on the distance h , not t.
+      
+This for a weakly stationary time series $\mu(t) \equiv \mu$ and $\gamma(t,t+h) \equiv \gamma(h)$
+
+$\bullet$ Example: Is IID$(0,\sigma^2)$ (weakly) stationary?
+
+(i) $\mu(t)=E[\epsilon_t]=0$ (independent of t)
+
+(ii) $\gamma(t,t+h)=Cov(\epsilon_t,\epsilon_{t+h})=\begin{cases}\sigma^2 &h=0\\ 0 &h>0\end{cases}$ (independent of t)
+
+thus, IID is weakly stationary.
+
+more: By similar arguments $WN(0,\sigma^2)$ is weakly stationary.
+
+$\bullet$ Eaxmple: Is $\{S_t\}$ (the random walk) with $S_t = \sum_{k=1}^t\epsilon_k$, $\{\epsilon_k\}\sim IID(0,\sigma^2)$ weakly stationary?
+
+(i) $\mu(t) = E[S_t]=0$
+
+(ii)
+$\gamma(t,t+h)=Cov(S_t,S_{t+h})$
+
+>> $= Cov(S_t,S_t+\epsilon_{t_1}+\epsilon_{t_2}+\epsilon_{t+3}...+\epsilon_{t+h})$
+
+>> =$Cov(S_t,S_t)+Cov(S_t,\epsilon_{t+1})...+Cov(S_t,\epsilon_{t+h})$
+
+>> =$var(S_t)$
+
+>> =$E[S_t^2]-E[S_t]^2$
+
+>> =$E[(\sum_{k=1}^t\epsilon_k)^2]$
+
+>> =$E[\sum_{k=1}^t[\epsilon_k^2]] + 2\sum_{i<j}E[\epsilon_i\epsilon_j]$
+
+>> =$\sum_{k=1}^tVar[\epsilon_k]+2\sum_{i<j}Cov(\epsilon_i,\epsilon_j)$
+
+>> =$\sum_{k=1}^t\sigma^2 = t\sigma^2$
+
+Thus, the random walk is not stationary.
+
+$\bullet$ Example: First order moving average: $\{Y_t\}\sim MA(1)$
+
+$Y_t=\epsilon_t+\theta\epsilon_{t-1}$
+
+Where $\theta\in R$ and $\{\epsilon_t\}\sim wn(0,\sigma^2)$. Show that {$Y_t$} IS weakly stationary.
+
+(i) $\mu(t) = E[Y_t] = E[\epsilon_t+\theta\epsilon_{t-1}]=E[\epsilon_t]+\theta E[\epsilon_{t-1}]= 0$
+
+(ii)
+
+$\gamma(t,t+h)=cov(Y_t,Y_{t+h})$
+
+>> =$Cov(\epsilon_t+\theta\epsilon_{t-1},\epsilon_{t+h}+\theta\epsilon_{t+h-1})$
+
+>> =$cov(\epsilon_t,\epsilon_{t+h})+\theta Cov(\epsilon_t,\epsilon_{t+h-1}) +\theta Cov(\epsilon_{t-1},\epsilon_{t+h}) +\theta^2Cov (\epsilon_{t-1},\epsilon_{t+h-1})$
+
+>> =$\begin{cases}\sigma^2(1+\theta^2)&h=0\\\theta\sigma^2&h=1\\0&h>1\end{cases}$
+\end{center}
